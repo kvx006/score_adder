@@ -30,6 +30,8 @@ class CellSplitter:
         self.diff_filter  = 1.0/3*(1*self.avg_vert[0:-2]+self.avg_vert[1:-1] + 1*self.avg_vert[2:])
 
         
+
+        
         plt.subplot(2,1,1)
         plt.plot(self.avg_vert)
         plt.subplot(2,1,2)
@@ -39,12 +41,30 @@ class CellSplitter:
         #plt.plot(self.avg_vert[1:]-self.avg_vert[0:-1])
 
 
-        plt.savefig('intensity.png')
+        plt.savefig(cell_image_loc+'intensity.png')
+        plt.close()
+
+        idxs = self.remove_vert_lines()
+        idx_min = np.amin(idxs)
+        idx_max = np.amax(idxs)
+        
+        
+
+        buffer_size = 5
+        for idx in range(idx_min-buffer_size,idx_max+buffer_size):
+            if (idx >0 and idx < len(self.diff_filter)):
+                self.cell[:,idx] = np.average(self.avg_vert)
+                self.diff_filter[idx] = np.average(self.diff_filter)
+            
+        plt.plot(self.diff_filter)
+        plt.savefig('remove_vert_line.png')
+
+
         
 
     #What if we have only one min?
     def split_cell(self):
-
+        guess = int(len(self.diff_filter)/2)
         #will be using finite difference
         halfWin = int(self.window_size/2)
         window_data = self.diff_filter[guess-halfWin: guess+halfWin+1]
@@ -77,13 +97,13 @@ class CellSplitter:
         idx_guess = guess + int( (right_idx+left_idx)/2 )
                 
         
-        print(left_idx, right_idx)
-        print('Cell split at: ', idx_guess)
+        #print(left_idx, right_idx)
+        #print('Cell split at: ', idx_guess)
         
         return idx_guess
         
     #find max between mins
-    def advanced_split(self):
+    def valley_peak_split(self):
             
         #Split cell into eigths, imagin 1/8 are border vaulues, so leave those out  
         llim = int(len(self.diff_filter)*1./8.)
@@ -106,24 +126,40 @@ class CellSplitter:
         if min_1_idx != min_2_idx:
             guess = int((min_1_idx+min_2_idx)/2.0)
         
-        return self.find_local_max(self.diff_filter[min_1_idx:min_2_idx])+min_1_idx
+        
+        print('idxs ', min_1_idx, min_2_idx)
+        return self.find_local_max(self.diff_filter[llim+min_1_idx:llim+min_2_idx])+(min_1_idx)
         
      
+     
+    def remove_vert_lines(self):
+         
+         diff_filter_avg = np.average(self.diff_filter)
+         idx_to_set_zero = []
+         for ind in range(len(self.diff_filter)):
+            if np.abs(diff_filter_avg - self.diff_filter[ind]) > 30:
+                idx_to_set_zero.append(ind)
+        
+         
+         return idx_to_set_zero
+         
+
 
     #given an array, find a local min and return index
     def find_local_min(self,arr):
         min_val = 10000
         min_idx = 0
-        tol_value = 0.1
+        tol_value = 2
         avg = np.average(arr)
         for ind in range(len(arr)):
             if ( arr[ind] < min_val):
                 min_idx = ind
                 min_val = arr[ind]
         
-        #see if minimum is truly a valley
-        if arr[ind] > avg - tol_value:
-            min_idx = 0
+            #see if minimum is truly a valley
+            #Need to change here
+            #if arr[ind] > avg - tol_value:
+            #    min_idx = 0
         
         return min_idx
         
@@ -138,9 +174,11 @@ class CellSplitter:
                 max_idx = ind
                 max_val = arr[ind]
         
-        #see if max is truly a peaks
-        if arr[ind] > avg - tol_value:
-            max_idx = 0
+            #see if max is truly a peaks
+            #Need to change here
+            #print(avg, tol_value, arr[ind])
+            #if arr[ind] < avg - tol_value:
+                #max_idx = 0
         
         return max_idx
 
@@ -151,16 +189,20 @@ class CellSplitter:
         
     def draw_splitter(self):
         #x = self.split_cell()
-        x = self.advanced_split()
+        x = self.valley_peak_split()
+        #print('x', x)
         lineThickness =  5
         #x = 175
         
         y1 = 0
         y2 = self.rowLen
-        cv2.line(self.cell, (x, y1), (x, y2), (0,255,0), lineThickness)
-        cv2.imwrite('segment.jpg',self.cell)       
+
+        cv2.imwrite('segment_1.jpg',self.cell[0:y2,0:x])       
+        cv2.imwrite('segment_2.jpg',self.cell[0:y2,x:])       
+        cv2.line(self.cell, (x, y1), (x, y2), (0,255,0), lineThickness)        
+        cv2.imwrite('segment.jpg', self.cell)
         
 if __name__ == "__main__":
-    fName = './img_files/table1_contours6.jpg'
+    fName = './img_files/table1_contours5.jpg'
     myCS = CellSplitter(fName)
     myCS.draw_splitter()
