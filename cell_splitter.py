@@ -24,6 +24,7 @@ class CellSplitter:
         
         #self.cell = cv2.bitwise_not(image)
         self.avg_vert = np.average(self.cell,axis=0)
+        avg_value = np.average(self.avg_vert)
         self.threshold_intensity_FD = 0.5
         
         self.diff_filter  = 1.0/3*(1*self.avg_vert[0:-2]+self.avg_vert[1:-1] + 1*self.avg_vert[2:])
@@ -32,15 +33,18 @@ class CellSplitter:
         plt.subplot(2,1,1)
         plt.plot(self.avg_vert)
         plt.subplot(2,1,2)
-        plt.ylim(-2,2)
-        plt.plot(self.diff_filter[1:]-self.diff_filter[0:-1])
-        
+        #plt.ylim(-0.02,0.02 )
+        plt.plot(np.log(self.avg_vert/avg_value))
+        #plt.plot(self.diff_filter[1:]-self.diff_filter[0:-1])
+        #plt.plot(self.avg_vert[1:]-self.avg_vert[0:-1])
+
+
         plt.savefig('intensity.png')
         
 
-        
+    #What if we have only one min?
     def split_cell(self):
-        guess = int(self.colLen/2)
+
         #will be using finite difference
         halfWin = int(self.window_size/2)
         window_data = self.diff_filter[guess-halfWin: guess+halfWin+1]
@@ -71,15 +75,83 @@ class CellSplitter:
                 
         
         idx_guess = guess + int( (right_idx+left_idx)/2 )
+                
         
         print(left_idx, right_idx)
         print('Cell split at: ', idx_guess)
         
         return idx_guess
         
+    #find max between mins
+    def advanced_split(self):
+            
+        #Split cell into eigths, imagin 1/8 are border vaulues, so leave those out  
+        llim = int(len(self.diff_filter)*1./8.)
+        rlim = llim*7
+        arr_1  = self.diff_filter[llim : 3*llim]
+        arr_2 = self.diff_filter[5*llim : 7*llim]
+        min_1_idx = self.find_local_min(arr_1)+llim
+        min_2_idx = self.find_local_min(arr_2)+5*llim
+        
+        #left min near center
+        if (min_1_idx == llim):
+            min_1_idx  = self.find_local_min(self.diff_filter[llim : 4*llim]) + llim
+        
+        #right min near cener
+        if (min_2_idx == 5*llim):
+            min_2_idx = self.find_local_min(self.diff_filter[4*llim : 7*llim])+4*llim
+
+
+        guess = int(self.colLen/2)        
+        if min_1_idx != min_2_idx:
+            guess = int((min_1_idx+min_2_idx)/2.0)
+        
+        return self.find_local_max(self.diff_filter[min_1_idx:min_2_idx])+min_1_idx
+        
+     
+
+    #given an array, find a local min and return index
+    def find_local_min(self,arr):
+        min_val = 10000
+        min_idx = 0
+        tol_value = 0.1
+        avg = np.average(arr)
+        for ind in range(len(arr)):
+            if ( arr[ind] < min_val):
+                min_idx = ind
+                min_val = arr[ind]
+        
+        #see if minimum is truly a valley
+        if arr[ind] > avg - tol_value:
+            min_idx = 0
+        
+        return min_idx
+        
+
+    def find_local_max(self,arr):
+        max_val = -10000
+        max_idx = 0
+        tol_value = 0.1
+        avg = np.average(arr)
+        for ind in range(len(arr)):
+            if ( arr[ind] > max_val):
+                max_idx = ind
+                max_val = arr[ind]
+        
+        #see if max is truly a peaks
+        if arr[ind] > avg - tol_value:
+            max_idx = 0
+        
+        return max_idx
+
+        
+        
+
+
         
     def draw_splitter(self):
-        x = self.split_cell()
+        #x = self.split_cell()
+        x = self.advanced_split()
         lineThickness =  5
         #x = 175
         
