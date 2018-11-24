@@ -6,7 +6,7 @@ import numpy as np
 # Load the classifier
 clf = joblib.load("digits_cls.pkl")
 
-im = cv2.imread("segment_2.jpg")
+im = cv2.imread("segment_1.jpg")
 
 #im2 = cv2.imread("img_files/table1_contours6.jpg")
 

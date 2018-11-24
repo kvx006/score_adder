@@ -49,13 +49,23 @@ class CellSplitter:
         idx_max = np.amax(idxs)
         
         
+        idxs_horiz = self.remove_horizontal_lines()
+        idxs_h_min = np.amin(idxs_horiz)
+        idxs_h_max = np.amax(idxs_horiz)
 
         buffer_size = 5
         for idx in range(idx_min-buffer_size,idx_max+buffer_size):
             if (idx >0 and idx < len(self.diff_filter)):
                 self.cell[:,idx] = np.average(self.avg_vert)
                 self.diff_filter[idx] = np.average(self.diff_filter)
-            
+
+        
+        for idx_h in range(idxs_h_min-buffer_size, idxs_h_max+buffer_size):
+            if (idx_h >0 and idx_h < len(self.avg_horizontal)):
+                self.cell[idx_h,:] = np.average(self.avg_horizontal)
+                #self.diff_filter[idx] = np.average(self.diff_filter)
+        
+        
         plt.plot(self.diff_filter)
         plt.savefig('remove_vert_line.png')
 
@@ -108,6 +118,7 @@ class CellSplitter:
         #Split cell into eigths, imagin 1/8 are border vaulues, so leave those out  
         llim = int(len(self.diff_filter)*1./8.)
         rlim = llim*7
+        print("splittings", llim, 2*llim, 3*llim, 4*llim, 5*llim, 6*llim, 7*llim, 8*llim)
         arr_1  = self.diff_filter[llim : 3*llim]
         arr_2 = self.diff_filter[5*llim : 7*llim]
         min_1_idx = self.find_local_min(arr_1)+llim
@@ -143,6 +154,18 @@ class CellSplitter:
          
          return idx_to_set_zero
          
+    def remove_horizontal_lines(self):
+        self.avg_horizontal = np.average(self.cell,axis=1)
+        diff_filter_avg = np.average(self.avg_horizontal)
+        idx_to_set_zero = []
+        for ind in range(len(self.avg_horizontal)):
+            if np.abs(diff_filter_avg - self.avg_horizontal[ind]) > 30:
+                idx_to_set_zero.append(ind)
+
+
+        return idx_to_set_zero
+
+         
 
 
     #given an array, find a local min and return index
@@ -152,9 +175,11 @@ class CellSplitter:
         tol_value = 2
         avg = np.average(arr)
         for ind in range(len(arr)):
+            #print(ind,  arr[ind])
             if ( arr[ind] < min_val):
                 min_idx = ind
                 min_val = arr[ind]
+                
         
             #see if minimum is truly a valley
             #Need to change here
